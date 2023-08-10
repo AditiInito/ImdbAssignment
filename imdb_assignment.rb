@@ -2,14 +2,23 @@ require "httparty"
 require "nokogiri"
 require 'faraday'
 
+class MoviesImdb
+    attr_accessor :name, :link, :cast
+    def initialize (name, link)
+        @name=name
+        @link=link
+        @cast=[]
+    end
+end
+
 def scrape_movie_details(movie)
     cast = []
-    resp = Faraday.get(movie[1])
+    resp = Faraday.get(movie.link)
     doc = Nokogiri::HTML(resp.body)
     doc.css(".fUguci").each do |actor|
         cast << actor.text
     end
-    movie << cast
+    movie.cast << cast
 end
 
 response = Faraday.get("https://www.imdb.com/chart/top")
@@ -23,7 +32,9 @@ html_products.each do |html_product|
         name = html_product.css("a").css("h3").first.text
         page = html_product.css("a").first.attribute("href").value
         page_link = "https://www.imdb.com" + page
-        top_movies << [name, page_link]
+        # top_movies << [name, page_link]
+        movie=MoviesImdb.new(name, page_link)
+        top_movies << movie
     end
 end
 threads.each(&:join)
@@ -34,25 +45,25 @@ loop do
 
     break if input.downcase == 'end'
 
-    n = input.to_i
+    number_of_movies = input.to_i
 
-    if n > 0
+    if number_of_movies > 0
         threads = []
-        top_movies.first(n).each do |movie|
+        top_movies.first(number_of_movies).each do |movie|
             threads << Thread.new { scrape_movie_details(movie) }
         end
         threads.each(&:join)
-        (0...n).each do |i|
-            puts top_movies[i][0]
+        (0...number_of_movies).each do |i|
+            puts top_movies[i].name
         end
 
         puts "enter the actor: "
         name = gets.chomp
         puts "enter the number of movies: "
-        m = gets.chomp.to_i
+        movies_of_actor = gets.chomp.to_i
 
-        (0...m).each do |i|
-            puts top_movies[i][0] if top_movies[i][2].include?(name)
+        (0...movies_of_actor).each do |i|
+            puts top_movies[i].name if top_movies[i].cast[0].include?(name)
         end
     else
         puts "Invalid input. Please enter a positive number or 'end'."
